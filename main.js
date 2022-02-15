@@ -4,10 +4,8 @@ const Jimp = require('jimp')
 const pixelmatch = require('pixelmatch')
 const { cv } = require('opencv-wasm')
 
-
-//
 async function findPuzzlePosition (page) {
-    let images = await page.$$eval('.css-jyuqmw', canvases => canvases.map(canvas => canvas.toDataURL().replace(/^data:image\/png;base64,/, '')))
+    let images = await page.$$eval('.geetest_canvas_img canvas', canvases => canvases.map(canvas => canvas.toDataURL().replace(/^data:image\/png;base64,/, '')))
 
     await fs.writeFile(`./puzzle.png`, images[1], 'base64')
 
@@ -33,7 +31,6 @@ async function findPuzzlePosition (page) {
     return [Math.floor(moment.m10 / moment.m00), Math.floor(moment.m01 / moment.m00)]
 }
 
-// find the position of difference
 async function findDiffPosition (page) {
     await page.waitFor(100)
 
@@ -63,24 +60,18 @@ async function findDiffPosition (page) {
     return [Math.floor(moment.m10 / moment.m00), Math.floor(moment.m01 / moment.m00)]
 }
 
-//pick originalImage and capcha image or
 async function saveSliderCaptchaImages(page) {
+    await page.waitForSelector('.tab-item.tab-item-1')
+    await page.click('.tab-item.tab-item-1')
 
-
-    await page.type('input[name=email]', 'tst@g.com')
-    await page.type('input[name=password]', '12345678')
-     //click enterPassword
-    try {
-         await page.click("button[id='onetrust-accept-btn-handler']")
-    } catch (error) {
-         console.log(error)
-    }
-    await page.click("button[id='click_login_submit']")
-
-
-    await page.waitForSelector('.css-jyuqmw', { visible: true })
+    await page.waitForSelector('[aria-label="Click to verify"]')
     await page.waitFor(1000)
-    let images = await page.$$eval('.css-jyuqmw', canvases => {
+
+    await page.click('[aria-label="Click to verify"]')
+
+    await page.waitForSelector('.geetest_canvas_img canvas', { visible: true })
+    await page.waitFor(1000)
+    let images = await page.$$eval('.geetest_canvas_img canvas', canvases => {
         return canvases.map(canvas => canvas.toDataURL().replace(/^data:image\/png;base64,/, ''))
     })
 
@@ -88,7 +79,6 @@ async function saveSliderCaptchaImages(page) {
     await fs.writeFile(`./original.png`, images[2], 'base64')
 }
 
-//create a diff image
 async function saveDiffImage() {
     const originalImage = await Jimp.read('./original.png')
     const captchaImage = await Jimp.read('./captcha.png')
@@ -109,15 +99,16 @@ async function run () {
     })
     const page = await browser.newPage()
 
-    await page.goto('https://accounts.binance.com/en/login');
+    await page.goto('https://www.geetest.com/en/demo', { waitUntil: 'networkidle2' })
 
-    
+    await page.waitFor(1000)
+
     await saveSliderCaptchaImages(page)
     await saveDiffImage()
 
     let [cx, cy] = await findDiffPosition(page)
 
-    const sliderHandle = await page.$('.css-p72bjc')  //
+    const sliderHandle = await page.$('.geetest_slider_button')
     const handle = await sliderHandle.boundingBox()
 
     let xPosition = handle.x + handle.width / 2
@@ -141,13 +132,12 @@ async function run () {
     await page.waitFor(3000)
     // success!
 
-    await fs.unlink('./original.png')
-    await fs.unlink('./captcha.png')
-    await fs.unlink('./diff.png')
-    await fs.unlink('./puzzle.png')
+    // await fs.unlink('./original.png')
+    // await fs.unlink('./captcha.png')
+    // await fs.unlink('./diff.png')
+    // await fs.unlink('./puzzle.png')
 
     await browser.close()
 }
 
 run()
- 
